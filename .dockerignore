@@ -3,3 +3,13 @@
 .github
 .vscode
 *.log
+.git
+.github
+.gitignore
+.dockerignore
+README.md
+LICENSE
+renovate.json
+install.sh
+post_install.py
+.claude
