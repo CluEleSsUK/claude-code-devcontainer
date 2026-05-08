@@ -54,3 +54,8 @@ _fzf_compgen_dir() {
 
 # Source fzf shell integration (built-in since fzf 0.48+)
 eval "$(fzf --zsh)"
+
+# Auto-start audio relay shim if not running
+if ! pgrep -f "socat.*19876" >/dev/null 2>&1; then
+    (setsid socat TCP-LISTEN:19876,fork,reuseaddr,bind=127.0.0.1 TCP:172.17.0.1:19876 >/dev/null 2>&1 &) >/dev/null 2>&1
+fi
