@@ -110,7 +110,5 @@ COPY --chown=vscode:vscode .zshrc /home/vscode/.zshrc.custom
 # Append custom zshrc to the main one
 RUN echo 'source ~/.zshrc.custom' >> /home/vscode/.zshrc
 
-COPY .devcontainer/sound-fx.local.json /home/vscode/.claude/sound-fx.local.json
-
 # Copy post_install script
 COPY --chown=vscode:vscode post_install.py /opt/post_install.py
