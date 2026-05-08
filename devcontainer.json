@@ -3,7 +3,7 @@
   "name": "Claude Code Sandbox",
   "build": {
     "dockerfile": "Dockerfile",
-    "context": "${localEnv:HOME}/.claude-devcontainer",
+    "context": "${localEnv:HOME}/repos/dotfiles/claude-devcontainer",
     "args": {
       "TZ": "${localEnv:TZ:UTC}",
       "GIT_DELTA_VERSION": "0.18.2",
