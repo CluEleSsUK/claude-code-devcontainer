@@ -26,7 +26,7 @@
         "anthropic.claude-code"
       ],
       "settings": {
-        "terminal.integrated.defaultProfile.linux": "zsh",
+        "terminal.integrated.defaultProfile.linux": "fish",
         "terminal.integrated.profiles.linux": {
           "bash": {
             "path": "bash",
@@ -34,6 +34,9 @@
           },
           "zsh": {
             "path": "zsh"
+          },
+          "fish": { 
+            "path": "/usr/bin/fish" 
           }
         },
         "files.trimTrailingWhitespace": true,
@@ -75,6 +78,6 @@
   "initializeCommand": "test -f \"$HOME/.gitconfig\" || touch \"$HOME/.gitconfig\"",
   "workspaceMount": "source=${localWorkspaceFolder},target=/workspace,type=bind,consistency=delegated",
   "workspaceFolder": "/workspace",
-  "postCreateCommand": "uv run --no-project /opt/post_install.py",
+  "postCreateCommand": "uv run --no-project /opt/post_install.py && sudo chsh -s /usr/bin/fish vscode",
   "postStartCommand": "nohup socat TCP-LISTEN:19876,fork,reuseaddr,bind=127.0.0.1 TCP:host.docker.internal:19876 >/tmp/sfx-relay.log 2>&1 &"
 }

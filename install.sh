@@ -275,7 +275,7 @@ cmd_shell() {
   check_devcontainer_cli
   log_info "Opening shell in devcontainer..."
 
-  devcontainer exec --workspace-folder "$workspace_folder" zsh
+  devcontainer exec --workspace-folder "$workspace_folder" fish
 }
 
 cmd_exec() {

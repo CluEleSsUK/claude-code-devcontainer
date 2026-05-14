@@ -15,6 +15,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
   socat \
   # Modern CLI tools
   fd-find \
+  fish \
   ripgrep \
   tmux \
   zsh \
@@ -62,10 +63,11 @@ RUN mkdir -p /commandhistory /workspace /home/vscode/.claude /opt && \
 
 # Set environment variables
 ENV DEVCONTAINER=true
-ENV SHELL=/bin/zsh
-ENV EDITOR=nano
-ENV VISUAL=nano
+ENV SHELL=/usr/bin/fish
+ENV EDITOR=vim
+ENV VISUAL=vim
 
+RUN chsh -s /usr/bin/fish vscode
 WORKDIR /workspace
 
 # Switch to non-root user for remaining setup
