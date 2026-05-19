@@ -16,7 +16,8 @@
   "runArgs": [
     "--cap-add=NET_ADMIN",
     "--cap-add=NET_RAW",
-    "--add-host=host.docker.internal:host-gateway"
+    "--add-host=host.docker.internal:host-gateway",
+    "--network=pasta:--map-host-loopback,169.254.1.2"
   ],
   "init": true,
   "updateRemoteUserUID": true,
@@ -79,5 +80,5 @@
   "workspaceMount": "source=${localWorkspaceFolder},target=/workspace,type=bind,consistency=delegated",
   "workspaceFolder": "/workspace",
   "postCreateCommand": "uv run --no-project /opt/post_install.py && sudo chsh -s /usr/bin/fish vscode",
-  "postStartCommand": "nohup socat TCP-LISTEN:19876,fork,reuseaddr,bind=127.0.0.1 TCP:host.docker.internal:19876 >/tmp/sfx-relay.log 2>&1 &"
+  "postStartCommand": "nohup bash -c 'socat TCP-LISTEN:19876,fork,reuseaddr,bind=127.0.0.1 TCP:host.docker.internal:19876 </dev/null >/tmp/sfx-relay.log 2>&1 &'"
 }
