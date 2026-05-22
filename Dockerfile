@@ -19,6 +19,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
   ripgrep \
   tmux \
   zsh \
+  fish \
   # Build tools
   build-essential \
   # Utilities
@@ -55,11 +56,22 @@ RUN ARCH=$(dpkg --print-architecture) && \
   esac && \
   curl -fsSL "https://github.com/junegunn/fzf/releases/download/v${FZF_VERSION}/fzf-${FZF_VERSION}-${FZF_ARCH}.tar.gz" | tar -xz -C /usr/local/bin
 
+# Install Go toolchain
+# renovate: datasource=golang-version depName=go
+ARG GO_VERSION=1.24.3
+RUN ARCH=$(dpkg --print-architecture) && \
+  case "${ARCH}" in \
+    amd64) GO_ARCH="linux-amd64" ;; \
+    arm64) GO_ARCH="linux-arm64" ;; \
+    *) echo "Unsupported architecture: ${ARCH}" && exit 1 ;; \
+  esac && \
+  curl -fsSL "https://go.dev/dl/go${GO_VERSION}.${GO_ARCH}.tar.gz" | tar -xz -C /usr/local
+
 # Create directories and set ownership (combined for fewer layers)
-RUN mkdir -p /commandhistory /workspace /home/vscode/.claude /opt && \
+RUN mkdir -p /commandhistory /workspace /home/vscode/.claude /opt /home/vscode/.config/fish && \
   touch /commandhistory/.bash_history && \
   touch /commandhistory/.zsh_history && \
-  chown -R vscode:vscode /commandhistory /workspace /home/vscode/.claude /opt
+  chown -R vscode:vscode /commandhistory /workspace /home/vscode/.claude /opt /home/vscode/.config/fish
 
 # Set environment variables
 ENV DEVCONTAINER=true
@@ -68,13 +80,18 @@ ENV EDITOR=vim
 ENV VISUAL=vim
 
 RUN chsh -s /usr/bin/fish vscode
+# Go and Rust environment
+ENV GOPATH="/home/vscode/go"
+ENV CARGO_HOME="/home/vscode/.cargo"
+ENV RUSTUP_HOME="/home/vscode/.rustup"
+
 WORKDIR /workspace
 
 # Switch to non-root user for remaining setup
 USER vscode
 
-# Set PATH early so claude and other user-installed binaries are available
-ENV PATH="/home/vscode/.local/bin:$PATH"
+# Set PATH so Go, Cargo, and user-installed binaries are available
+ENV PATH="/usr/local/go/bin:${GOPATH}/bin:${CARGO_HOME}/bin:/home/vscode/.local/bin:$PATH"
 
 # Install Claude Code natively with marketplace plugins
 RUN curl -fsSL https://claude.ai/install.sh | bash && \
@@ -90,14 +107,19 @@ RUN uv python install 3.13 --default
 # Install ast-grep (AST-based code search)
 RUN uv tool install ast-grep-cli
 
-# Install fnm (Fast Node Manager) and Node 22
+# Install nvm and Node.js
+# renovate: datasource=github-releases depName=nvm-sh/nvm
+ARG NVM_VERSION=0.40.3
 ARG NODE_VERSION=22
-ENV FNM_DIR="/home/vscode/.fnm"
-RUN curl -fsSL https://fnm.vercel.app/install | bash -s -- --install-dir "$FNM_DIR" --skip-shell && \
-  export PATH="$FNM_DIR:$PATH" && \
-  eval "$(fnm env)" && \
-  fnm install ${NODE_VERSION} && \
-  fnm default ${NODE_VERSION}
+ENV NVM_DIR="/home/vscode/.nvm"
+RUN curl -o- "https://raw.githubusercontent.com/nvm-sh/nvm/v${NVM_VERSION}/install.sh" | PROFILE=/dev/null bash && \
+  . "$NVM_DIR/nvm.sh" && \
+  nvm install ${NODE_VERSION} && \
+  nvm alias default ${NODE_VERSION} && \
+  npm install -g @openai/codex
+
+# Install Rust via rustup
+RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --no-modify-path
 
 # Install Oh My Zsh
 # renovate: datasource=github-releases depName=deluan/zsh-in-docker
@@ -106,11 +128,17 @@ RUN sh -c "$(curl -fsSL https://github.com/deluan/zsh-in-docker/releases/downloa
   -p git \
   -x
 
+# Install Fisher (fish plugin manager) and plugins
+RUN fish -c 'curl -sL https://raw.githubusercontent.com/jorgebucaran/fisher/main/functions/fisher.fish | source && fisher install jorgebucaran/fisher jorgebucaran/nvm.fish'
+
 # Copy zsh configuration
 COPY --chown=vscode:vscode .zshrc /home/vscode/.zshrc.custom
 
 # Append custom zshrc to the main one
 RUN echo 'source ~/.zshrc.custom' >> /home/vscode/.zshrc
+
+# Copy fish configuration
+COPY --chown=vscode:vscode config.fish /home/vscode/.config/fish/config.fish
 
 # Copy post_install script
 COPY --chown=vscode:vscode post_install.py /opt/post_install.py

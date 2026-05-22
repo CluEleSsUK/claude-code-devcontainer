@@ -16,6 +16,13 @@ import sys
 from pathlib import Path
 
 
+def log_token_status():
+    """Log presence/absence of optional auth tokens."""
+    for var in ("CLAUDE_CODE_OAUTH_TOKEN", "OPENAPI_OAUTH_TOKEN", "ANTHROPIC_API_KEY", "GH_TOKEN"):
+        status = "set" if os.environ.get(var, "").strip() else "not set"
+        print(f"[post_install] {var}: {status}", file=sys.stderr)
+
+
 def setup_onboarding_bypass():
     """Bypass the interactive onboarding wizard when CLAUDE_CODE_OAUTH_TOKEN is set.
 
@@ -165,6 +172,23 @@ set -g status-right '%Y-%m-%d %H:%M'
     print(f"[post_install] Tmux configured: {tmux_conf}", file=sys.stderr)
 
 
+def setup_codex_symlink():
+    """Symlink ~/.codex to /workspace/.codex so codex config lives with the project."""
+    workspace_codex = Path("/workspace/.codex")
+    home_codex = Path.home() / ".codex"
+
+    workspace_codex.mkdir(exist_ok=True)
+
+    if home_codex.is_symlink():
+        home_codex.unlink()
+    elif home_codex.exists():
+        print(f"[post_install] {home_codex} already exists and is not a symlink, skipping", file=sys.stderr)
+        return
+
+    home_codex.symlink_to(workspace_codex)
+    print(f"[post_install] Symlinked {home_codex} -> {workspace_codex}", file=sys.stderr)
+
+
 def fix_directory_ownership():
     """Fix ownership of mounted volumes that may have root ownership."""
     uid = os.getuid()
@@ -296,6 +320,8 @@ def main():
     """Run all post-install configuration."""
     print("[post_install] Starting post-install configuration...", file=sys.stderr)
 
+    log_token_status()
+    setup_codex_symlink()
     setup_onboarding_bypass()
     setup_claude_settings()
     setup_tmux_config()
