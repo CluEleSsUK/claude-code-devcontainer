@@ -7,7 +7,8 @@
     "args": {
       "TZ": "${localEnv:TZ:UTC}",
       "GIT_DELTA_VERSION": "0.18.2",
-      "ZSH_IN_DOCKER_VERSION": "1.2.1"
+      "ZSH_IN_DOCKER_VERSION": "1.2.1",
+      "PRIME_AGENT_VERSION": "0.7.2"
     }
   },
   "features": {
@@ -15,9 +16,7 @@
   },
   "runArgs": [
     "--cap-add=NET_ADMIN",
-    "--cap-add=NET_RAW",
-    "--add-host=host.docker.internal:host-gateway",
-    "--network=pasta:--map-host-loopback,169.254.1.2"
+    "--cap-add=NET_RAW"
   ],
   "init": true,
   "updateRemoteUserUID": true,
@@ -52,6 +51,7 @@
     "source=devc-${localWorkspaceFolderBasename}-config-${devcontainerId},target=/home/vscode/.claude,type=volume",
     "source=devc-${localWorkspaceFolderBasename}-gh-${devcontainerId},target=/home/vscode/.config/gh,type=volume",
     "source=${localEnv:HOME}/.gitconfig,target=/home/vscode/.gitconfig,type=bind,readonly",
+    "source=${localEnv:HOME}/.prime,target=/home/vscode/.prime,type=bind,consistency=delegated",
     "source=${localWorkspaceFolder}/.devcontainer,target=/workspace/.devcontainer,type=bind,readonly"
   ],
   "containerEnv": {
@@ -68,7 +68,7 @@
     "NPM_CONFIG_MINIMUM_RELEASE_AGE": "1440",
     "PYTHONDONTWRITEBYTECODE": "1",
     "PIP_DISABLE_PIP_VERSION_CHECK": "1",
-    "ANTHROPIC_MODEL": "claude-opus-4-8",
+    "ANTHROPIC_MODEL": "claude-opus-5",
     "CLAUDE_CODE_EFFORT_LEVEL": "xhigh",
     "CLAUDE_CODE_DISABLE_AUTO_MEMORY": "1"
   },
@@ -76,9 +76,10 @@
     "CLAUDE_CODE_OAUTH_TOKEN": "${localEnv:CLAUDE_CODE_OAUTH_TOKEN:}",
     "OPENAPI_OAUTH_TOKEN": "${localEnv:OPENAPI_OAUTH_TOKEN:}",
     "ANTHROPIC_API_KEY": "${localEnv:ANTHROPIC_API_KEY:}",
-    "GH_TOKEN":"${localEnv:GH_TOKEN:}"
+    "GH_TOKEN":"${localEnv:GH_TOKEN:}",
+    "CONFIDENTIAL_API_KEY": "${localEnv:CONFIDENTIAL_API_KEY:}"
   },
-  "initializeCommand": "test -f \"$HOME/.gitconfig\" || touch \"$HOME/.gitconfig\"",
+  "initializeCommand": "test -f \"$HOME/.gitconfig\" || touch \"$HOME/.gitconfig\"; test -e \"$HOME/.prime\" || mkdir -p \"$HOME/.prime/agent\"",
   "workspaceMount": "source=${localWorkspaceFolder},target=/workspace,type=bind,consistency=delegated",
   "workspaceFolder": "/workspace",
   "postCreateCommand": "uv run --no-project /opt/post_install.py && sudo chsh -s /usr/bin/fish vscode",

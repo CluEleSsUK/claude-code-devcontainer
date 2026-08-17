@@ -118,6 +118,27 @@ RUN curl -o- "https://raw.githubusercontent.com/nvm-sh/nvm/v${NVM_VERSION}/insta
   nvm alias default ${NODE_VERSION} && \
   npm install -g @openai/codex
 
+# Install prime-agent. Not on the public npm registry: the vendor installer resolves a
+# pinned release and verifies it against a SHA256SUMS manifest. Bump the version by hand —
+# renovate has no datasource for this channel.
+#
+# ~/.prime is bind-mounted from the macOS host at runtime, so prime-agent's components must
+# not live under it: the host's builds are Mach-O and cannot execute here, and anything the
+# image installs there is shadowed anyway. PRIME_AGENT_CODING_AGENT_DIR redirects the
+# build-time bootstrap and PRIME_AGENT_KERNEL_VENV pins the Python 3.11 IPython kernel venv
+# into /opt/prime, leaving auth/models/settings/sessions to come from the bind mount at
+# runtime. fd/rg need no baking — the bootstrap reuses the apt copies, and at runtime
+# prime-agent rejects the host's macOS ones (they fail its --version probe) for /usr/bin.
+ARG PRIME_AGENT_VERSION=0.7.2
+ENV PRIME_AGENT_KERNEL_VENV=/opt/prime/kernel-venv
+RUN mkdir -p /opt/prime/agent && \
+  . "$NVM_DIR/nvm.sh" && \
+  PRIME_AGENT_VERSION="${PRIME_AGENT_VERSION}" \
+  PRIME_AGENT_CODING_AGENT_DIR=/opt/prime/agent \
+  PRIME_AGENT_BOOTSTRAP_KERNEL_ON_INSTALL=1 \
+  PRIME_AGENT_INSTALLER_PLAIN=1 \
+  bash -c 'curl -fsSL https://app.primeintellect.ai/prime-agent/install.sh | sh'
+
 # Install Rust via rustup
 RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --no-modify-path
 
