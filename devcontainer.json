@@ -51,7 +51,10 @@
     "source=devc-${localWorkspaceFolderBasename}-config-${devcontainerId},target=/home/vscode/.claude,type=volume",
     "source=devc-${localWorkspaceFolderBasename}-gh-${devcontainerId},target=/home/vscode/.config/gh,type=volume",
     "source=${localEnv:HOME}/.gitconfig,target=/home/vscode/.gitconfig,type=bind,readonly",
-    "source=${localEnv:HOME}/.prime,target=/home/vscode/.prime,type=bind,consistency=delegated",
+    "source=devc-${localWorkspaceFolderBasename}-prime-${devcontainerId},target=/home/vscode/.prime,type=volume",
+    "source=${localEnv:HOME}/.prime/agent/auth.json,target=/home/vscode/.prime/agent/auth.json,type=bind",
+    "source=${localEnv:HOME}/.prime/agent/models.json,target=/home/vscode/.prime/agent/models.json,type=bind",
+    "source=${localEnv:HOME}/.prime/agent/settings.json,target=/home/vscode/.prime/agent/settings.json,type=bind",
     "source=${localWorkspaceFolder}/.devcontainer,target=/workspace/.devcontainer,type=bind,readonly"
   ],
   "containerEnv": {
@@ -79,7 +82,7 @@
     "GH_TOKEN":"${localEnv:GH_TOKEN:}",
     "CONFIDENTIAL_API_KEY": "${localEnv:CONFIDENTIAL_API_KEY:}"
   },
-  "initializeCommand": "test -f \"$HOME/.gitconfig\" || touch \"$HOME/.gitconfig\"; test -e \"$HOME/.prime\" || mkdir -p \"$HOME/.prime/agent\"",
+  "initializeCommand": "test -f \"$HOME/.gitconfig\" || touch \"$HOME/.gitconfig\"; mkdir -p \"$HOME/.prime/agent\"; P=\"$HOME/.prime/agent\"; test -f \"$P/auth.json\" || (umask 077; echo '{}' > \"$P/auth.json\"); test -f \"$P/models.json\" || echo '{\"providers\":{}}' > \"$P/models.json\"; test -f \"$P/settings.json\" || echo '{}' > \"$P/settings.json\"",
   "workspaceMount": "source=${localWorkspaceFolder},target=/workspace,type=bind,consistency=delegated",
   "workspaceFolder": "/workspace",
   "postCreateCommand": "uv run --no-project /opt/post_install.py && sudo chsh -s /usr/bin/fish vscode",

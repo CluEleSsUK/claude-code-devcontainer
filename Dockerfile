@@ -122,13 +122,14 @@ RUN curl -o- "https://raw.githubusercontent.com/nvm-sh/nvm/v${NVM_VERSION}/insta
 # pinned release and verifies it against a SHA256SUMS manifest. Bump the version by hand —
 # renovate has no datasource for this channel.
 #
-# ~/.prime is bind-mounted from the macOS host at runtime, so prime-agent's components must
-# not live under it: the host's builds are Mach-O and cannot execute here, and anything the
-# image installs there is shadowed anyway. PRIME_AGENT_CODING_AGENT_DIR redirects the
+# ~/.prime is a per-container volume at runtime — only the config JSONs are bound from the
+# host, because prime's daemon, session and lease state cannot be shared between containers
+# without them claiming each other's sessions. That volume starts empty on every rebuild, so
+# prime-agent's components must not live under it: PRIME_AGENT_CODING_AGENT_DIR redirects the
 # build-time bootstrap and PRIME_AGENT_KERNEL_VENV pins the Python 3.11 IPython kernel venv
-# into /opt/prime, leaving auth/models/settings/sessions to come from the bind mount at
-# runtime. fd/rg need no baking — the bootstrap reuses the apt copies, and at runtime
-# prime-agent rejects the host's macOS ones (they fail its --version probe) for /usr/bin.
+# into /opt/prime, where one image-baked copy serves every container instead of each paying a
+# ~270MB uv bootstrap on first ipython use. fd/rg need no baking — the bootstrap finds the
+# apt copies and skips the download.
 ARG PRIME_AGENT_VERSION=0.7.2
 ENV PRIME_AGENT_KERNEL_VENV=/opt/prime/kernel-venv
 RUN mkdir -p /opt/prime/agent && \
