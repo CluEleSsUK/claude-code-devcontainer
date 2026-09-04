@@ -14,12 +14,10 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
   bubblewrap \
   socat \
   # Modern CLI tools
-  fd-find \
   fish \
+  fd-find \
   ripgrep \
   tmux \
-  zsh \
-  fish \
   # Build tools
   build-essential \
   # Utilities
@@ -139,16 +137,6 @@ RUN mkdir -p /opt/prime/agent && \
   PRIME_AGENT_BOOTSTRAP_KERNEL_ON_INSTALL=1 \
   PRIME_AGENT_INSTALLER_PLAIN=1 \
   bash -c 'curl -fsSL https://app.primeintellect.ai/prime-agent/install.sh | sh'
-
-# Install Rust via rustup
-RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --no-modify-path
-
-# Install Oh My Zsh
-# renovate: datasource=github-releases depName=deluan/zsh-in-docker
-ARG ZSH_IN_DOCKER_VERSION=1.2.1
-RUN sh -c "$(curl -fsSL https://github.com/deluan/zsh-in-docker/releases/download/v${ZSH_IN_DOCKER_VERSION}/zsh-in-docker.sh)" -- \
-  -p git \
-  -x
 
 # Install Fisher (fish plugin manager) and plugins
 RUN fish -c 'curl -sL https://raw.githubusercontent.com/jorgebucaran/fisher/main/functions/fisher.fish | source && fisher install jorgebucaran/fisher jorgebucaran/nvm.fish'

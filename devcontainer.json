@@ -12,7 +12,15 @@
     }
   },
   "features": {
-    "ghcr.io/devcontainers/features/github-cli:1": {}
+    "ghcr.io/devcontainers/features/github-cli:1": {},
+    "ghcr.io/devcontainers/features/rust:1": {},
+    "ghcr.io/devcontainers/features/go:1": { "version": "latest" },
+    "ghcr.io/devcontainers/features/kubectl-helm-minikube:1": {
+      "helm": "latest",
+      "minikube": "none"
+    },
+    "ghcr.io/devcontainers/features/python:1": { "version": "3.12" }
+
   },
   "runArgs": [
     "--cap-add=NET_ADMIN",
@@ -80,11 +88,12 @@
     "OPENAPI_OAUTH_TOKEN": "${localEnv:OPENAPI_OAUTH_TOKEN:}",
     "ANTHROPIC_API_KEY": "${localEnv:ANTHROPIC_API_KEY:}",
     "GH_TOKEN":"${localEnv:GH_TOKEN:}",
-    "CONFIDENTIAL_API_KEY": "${localEnv:CONFIDENTIAL_API_KEY:}"
+    "CONFIDENTIAL_API_KEY": "${localEnv:CONFIDENTIAL_API_KEY:}",
+    "PATH": "${containerEnv:PATH}:/home/vscode/.prime/bin:/home/vscode/.local/bin:/home/vscode/.local/share/prime-agent-node/current/bin"
   },
   "initializeCommand": "test -f \"$HOME/.gitconfig\" || touch \"$HOME/.gitconfig\"; mkdir -p \"$HOME/.prime/agent\"; P=\"$HOME/.prime/agent\"; test -f \"$P/auth.json\" || (umask 077; echo '{}' > \"$P/auth.json\"); test -f \"$P/models.json\" || echo '{\"providers\":{}}' > \"$P/models.json\"; test -f \"$P/settings.json\" || echo '{}' > \"$P/settings.json\"",
   "workspaceMount": "source=${localWorkspaceFolder},target=/workspace,type=bind,consistency=delegated",
   "workspaceFolder": "/workspace",
-  "postCreateCommand": "uv run --no-project /opt/post_install.py && sudo chsh -s /usr/bin/fish vscode",
+  "postCreateCommand": "sudo chown -R vscode:vscode /home/vscode/.prime && curl -fsSL https://app.primeintellect.ai/prime-agent/install.sh | sh && sudo chsh -s /usr/bin/fish vscode",
   "postStartCommand": "nohup bash -c 'socat TCP-LISTEN:19876,fork,reuseaddr,bind=127.0.0.1 TCP:host.docker.internal:19876 </dev/null >/tmp/sfx-relay.log 2>&1 &'"
 }
