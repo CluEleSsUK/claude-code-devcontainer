@@ -236,12 +236,75 @@ The container auto-configures `bypassPermissions` mode—Claude runs commands wi
 |-----------|---------|
 | Base | Ubuntu 24.04, Node.js 22, Python 3.13 + uv, zsh |
 | User | `vscode` (passwordless sudo), working dir `/workspace` |
-| Tools | `rg`, `fd`, `tmux`, `fzf`, `delta`, `iptables`, `ipset` |
-| Volumes (survive rebuilds) | Command history (`/commandhistory`), Claude config (`~/.claude`), GitHub CLI auth (`~/.config/gh`) |
-| Host mounts | `~/.gitconfig` (read-only), `.devcontainer/` (read-only) |
+| Tools | `rg`, `fd`, `tmux`, `fzf`, `delta`, `iptables`, `ipset`, `grev` |
+| Agents | `claude` (Claude Code), `codex` (OpenAI Codex CLI), `prime` (prime-agent) |
+| Volumes (survive rebuilds) | Command history (`/commandhistory`), Claude config (`~/.claude`), GitHub CLI auth (`~/.config/gh`), Codex login (`~/.codex`) |
+| Host mounts | `~/.gitconfig` (read-only), `~/.grevconfig` (read-only), `~/.agents` (read-only, shared skills and prompts), `.devcontainer/` (read-only) |
 | Auto-configured | [anthropics](https://github.com/anthropics/claude-code-plugins) + [trailofbits](https://github.com/trailofbits/claude-code-plugins) skills, git-delta |
 
-Volumes are stored outside the container, so your shell history, Claude settings, and `gh` login persist even after `devc rebuild`. Host `~/.gitconfig` is mounted read-only for git identity.
+Volumes are stored outside the container, so your shell history, Claude settings, `gh` login, and Codex login persist even after `devc rebuild`. Host `~/.gitconfig` is mounted read-only for git identity.
+
+### Codex CLI
+
+`codex` is installed at a pinned version (`CODEX_VERSION` build arg) and is on `PATH` in every shell.
+
+Unlike Claude Code, Codex has **no token passthrough** — no credential file is bound from the host, so
+your host `~/.codex` (ChatGPT refresh token included) is never readable from inside a container. Run:
+
+```bash
+codex login
+```
+
+once per container. The login lands in the `~/.codex` volume and survives `devc rebuild`; `devc destroy`
+drops it, as it does the `gh` and Claude volumes. Setting `OPENAI_API_KEY` on the host forwards it into
+the container if you would rather bill against API credit than a ChatGPT plan.
+
+### grev tools
+
+The [grev](https://github.com/aurorainfra/grev) tools are installed from a checksum-verified deb at a
+pinned version (`GREV_VERSION` build arg): `grev`, `isv`, `pickv`, `rank`, `sortv`, `tagv`, `uniqv`,
+`trv`, `lookv`, `seek`, `cutv`, `probev`, `oneof`, `seg`, `unwrap`, plus man pages and completions.
+They are `grep`, `test`, `sort`, `cut` and `find` with a plain-English question in place of the
+pattern, and they print your input back verbatim:
+
+```bash
+grev --about 'nginx access log' 'is an attack or exploit attempt' access.log
+git diff --cached | isv 'adds a secret or credential' && echo 'secret in the diff'
+```
+
+The grev agent skill, which tells agents when to reach for these instead of `grep`, comes from the
+host's `~/.agents` like every other shared skill (see [Shared skills and prompts](#shared-skills-and-prompts)).
+The deb's own copy at `/usr/share/grev/skills/grev` isn't used, so bumping `GREV_VERSION` doesn't
+refresh the skill. Refresh the vendored copy in the dotfiles repo instead.
+
+Auth works like `GH_TOKEN`, not like `codex login`: set `TYPESAFE_API_KEY` on the host and it is
+forwarded in. No key is baked into the image or written to the mounted config. Host `~/.grevconfig`
+is mounted read-only for defaults and spend caps — the caps are enforced against a *per-container*
+spend ledger, so each container gets its own daily and monthly allowance rather than sharing the
+host's. `grev-settings key status` checks the key, `grev-settings spend` shows what a container has
+spent.
+
+**Your input is sent to the configured API.** Treat it as you would any outbound request: do not
+pipe secrets or private data through these tools without deciding that is what you want.
+
+### Shared skills and prompts
+
+The host's `~/.agents` (the dotfiles `agents/` directory: every skill and prompt) is mounted
+**read-only** at `~/.agents`. `initializeCommand` creates an empty one if the host has none.
+
+| agent | gets them from |
+|---|---|
+| Codex, prime-agent | `~/.agents/skills` directly. prime also gets `~/.agents/prompts` through the bound `settings.json` |
+| Claude Code | links in its `~/.claude` volume, made by `link-agents` (`link-agents.sh`, baked into the image) |
+
+`link-agents` runs on every container start (`postStartCommand`). Codex and prime see a skill
+added on the host straight away. Claude needs a container restart (`devc down && devc up`)
+before the new link exists. Links to entries deleted on the host are dropped at the same point.
+
+Because the mount is read-only, nothing in the container can change the host's skills.
+Anything an agent tries to write under `~/.agents` fails, for example Codex's personal plugin
+marketplace in `~/.agents/plugins/`. Claude's claude.ai-synced skills still work, because
+`link-agents` never links `synced/`: it stays a writable directory in the `~/.claude` volume.
 
 ## Troubleshooting
 

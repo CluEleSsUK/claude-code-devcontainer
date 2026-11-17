@@ -40,6 +40,27 @@ RUN ARCH=$(dpkg --print-architecture) && \
   dpkg -i /tmp/git-delta.deb && \
   rm /tmp/git-delta.deb
 
+# Install the grev tools: grep/isv/rank/tagv/seek and friends, where the pattern is a
+# plain-English question a model answers instead of a regex. They let an agent screen inputs
+# far larger than its context for fractions of a cent, and print the input back verbatim.
+#
+# The deb is used rather than `go install` because it also lands the man pages and the shell
+# completions. Its copy of the agent skill (/usr/share/grev/skills/grev) goes unused: agents
+# here read the host's vendored copy from the ~/.agents mount, like every other shared skill.
+# It declares no dependencies, so plain dpkg -i needs no apt resolution. checksums.txt is
+# verified before install: these are ~40MB of prebuilt third-party binaries.
+# renovate: datasource=github-releases depName=aurorainfra/grev
+ARG GREV_VERSION=0.4.0
+RUN ARCH=$(dpkg --print-architecture) && \
+  DEB="grev_${GREV_VERSION}_${ARCH}.deb" && \
+  REL="https://github.com/aurorainfra/grev/releases/download/v${GREV_VERSION}" && \
+  cd /tmp && \
+  curl -fsSL -O "${REL}/${DEB}" && \
+  curl -fsSL -O "${REL}/checksums.txt" && \
+  sha256sum --ignore-missing -c checksums.txt && \
+  dpkg -i "${DEB}" && \
+  rm -f "${DEB}" checksums.txt
+
 # Install uv (Python package manager) via multi-stage copy
 COPY --from=uv /uv /usr/local/bin/uv
 
@@ -66,10 +87,10 @@ RUN ARCH=$(dpkg --print-architecture) && \
   curl -fsSL "https://go.dev/dl/go${GO_VERSION}.${GO_ARCH}.tar.gz" | tar -xz -C /usr/local
 
 # Create directories and set ownership (combined for fewer layers)
-RUN mkdir -p /commandhistory /workspace /home/vscode/.claude /opt /home/vscode/.config/fish && \
+RUN mkdir -p /commandhistory /workspace /home/vscode/.claude /home/vscode/.codex /opt /home/vscode/.config/fish && \
   touch /commandhistory/.bash_history && \
   touch /commandhistory/.zsh_history && \
-  chown -R vscode:vscode /commandhistory /workspace /home/vscode/.claude /opt /home/vscode/.config/fish
+  chown -R vscode:vscode /commandhistory /workspace /home/vscode/.claude /home/vscode/.codex /opt /home/vscode/.config/fish
 
 # Set environment variables
 ENV DEVCONTAINER=true
@@ -114,7 +135,22 @@ RUN curl -o- "https://raw.githubusercontent.com/nvm-sh/nvm/v${NVM_VERSION}/insta
   . "$NVM_DIR/nvm.sh" && \
   nvm install ${NODE_VERSION} && \
   nvm alias default ${NODE_VERSION} && \
-  npm install -g @openai/codex
+  ln -sfn "$NVM_DIR/versions/node/$(nvm version default)" "$NVM_DIR/current"
+
+# nvm installs node under a version-stamped path and only puts it on PATH from `nvm.sh`,
+# which the default fish shell never sources — so node was reachable in zsh and nowhere else.
+# $NVM_DIR/current is a stable symlink to the default install, letting PATH reach node without
+# nvm. Codex depends on this: the `codex` npm bin is a `#!/usr/bin/env node` shim that execs
+# the platform binary, so a PATH without node makes `codex` fail at exec, not at import.
+ENV PATH="${NVM_DIR}/current/bin:${PATH}"
+
+# Install Codex CLI. Global npm installs land in $NVM_DIR/current/bin, so this needs no
+# further PATH wiring. ~/.codex is a per-container volume holding the login: nothing is bound
+# from the host, so credentials never cross the container boundary — run `codex login` once
+# per container and the volume carries it across restarts and rebuilds.
+# renovate: datasource=npm depName=@openai/codex
+ARG CODEX_VERSION=0.153.4
+RUN npm install -g "@openai/codex@${CODEX_VERSION}"
 
 # Install prime-agent. Not on the public npm registry: the vendor installer resolves a
 # pinned release and verifies it against a SHA256SUMS manifest. Bump the version by hand —
@@ -144,6 +180,9 @@ RUN fish -c 'curl -sL https://raw.githubusercontent.com/jorgebucaran/fisher/main
 # Copy zsh configuration
 COPY --chown=vscode:vscode .zshrc /home/vscode/.zshrc.custom
 
+# set a better term var for some command handling
+ENV TERM=xterm-256color
+
 # Append custom zshrc to the main one
 RUN echo 'source ~/.zshrc.custom' >> /home/vscode/.zshrc
 
@@ -152,3 +191,7 @@ COPY --chown=vscode:vscode config.fish /home/vscode/.config/fish/config.fish
 
 # Copy post_install script
 COPY --chown=vscode:vscode post_install.py /opt/post_install.py
+
+# Links the host's shared skills and prompts (~/.agents mount) into Claude's config volume
+# on every container start. Root-owned so nothing in the container can rewrite it.
+COPY link-agents.sh /usr/local/bin/link-agents
