@@ -1,20 +1,20 @@
 #!/usr/bin/env bash
-# link-agents: give Claude Code the host's shared skills and prompts.
+# link-agents: give Claude Code the host's shared skills.
 #
 # ~/.agents is the host's dotfiles agents/ directory, bind-mounted read-only.
-# Codex and prime-agent read ~/.agents/skills on their own, and prime reads
-# ~/.agents/prompts through the bound settings.json. Claude Code reads only
-# ~/.claude (a per-container volume), so each shared skill and prompt gets a
-# link there. Runs on every container start: entries added on the host since
-# show up after a restart, and links to removed ones are dropped.
+# Codex and prime-agent read ~/.agents/skills on their own. Claude Code reads
+# only ~/.claude (a per-container volume), so each shared skill gets a link
+# there. Runs on every container start: skills added on the host since show up
+# after a restart, and links to removed ones are dropped.
 set -euo pipefail
 
 agents="$HOME/.agents"
 claude="${CLAUDE_CONFIG_DIR:-$HOME/.claude}"
 
-mkdir -p "$claude/skills" "$claude/commands"
+mkdir -p "$claude/skills"
 
-# Links to skills or prompts that were deleted on the host
+# Links to entries deleted on the host. commands/ held links to the prompts
+# before they became skills, so volumes from that version still have them.
 for link in "$claude"/skills/* "$claude"/commands/*; do
     [[ -L "$link" && ! -e "$link" ]] || continue
     [[ "$(readlink "$link")" == "$agents/"* ]] || continue
@@ -31,18 +31,6 @@ for entry in "$agents"/skills/*; do
     dst="$claude/skills/$name"
     [[ -L "$dst" || ! -e "$dst" ]] || continue
     ln -sfn "$entry" "$dst"
-done
-
-for prompt in "$agents"/prompts/*.md; do
-    [[ -f "$prompt" ]] || continue
-    name="${prompt##*/}"
-    case "$name" in
-        # Instructions for agents editing the prompts, not prompts themselves
-        AGENTS.md|CLAUDE.md) continue ;;
-    esac
-    dst="$claude/commands/$name"
-    [[ -L "$dst" || ! -e "$dst" ]] || continue
-    ln -sfn "$prompt" "$dst"
 done
 
 # A same-named link in codex's or prime's own skills directory would load the

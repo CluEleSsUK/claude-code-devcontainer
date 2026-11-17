@@ -289,12 +289,13 @@ pipe secrets or private data through these tools without deciding that is what y
 
 ### Shared skills and prompts
 
-The host's `~/.agents` (the dotfiles `agents/` directory: every skill and prompt) is mounted
-**read-only** at `~/.agents`. `initializeCommand` creates an empty one if the host has none.
+The host's `~/.agents` (the dotfiles `agents/` directory: every skill, including the
+manual-only role prompts) is mounted **read-only** at `~/.agents`. `initializeCommand`
+creates an empty one if the host has none.
 
 | agent | gets them from |
 |---|---|
-| Codex, prime-agent | `~/.agents/skills` directly. prime also gets `~/.agents/prompts` through the bound `settings.json` |
+| Codex, prime-agent | `~/.agents/skills` directly |
 | Claude Code | links in its `~/.claude` volume, made by `link-agents` (`link-agents.sh`, baked into the image) |
 
 `link-agents` runs on every container start (`postStartCommand`). Codex and prime see a skill
@@ -307,6 +308,16 @@ marketplace in `~/.agents/plugins/`. Claude's claude.ai-synced skills still work
 `link-agents` never links `synced/`: it stays a writable directory in the `~/.claude` volume.
 
 ## Troubleshooting
+
+### A template change (e.g. a new mount) doesn't show up after `devc rebuild`
+
+Each project has its own copy of the template in `.devcontainer/`, and `devc rebuild` only
+recreates the container from that copy. Refresh the copy first: answer `y` to the overwrite
+prompt. Mounts you added with `devc mount` are kept.
+
+```bash
+devc template && devc rebuild
+```
 
 ### "devcontainer CLI not found"
 
