@@ -152,27 +152,38 @@ ENV PATH="${NVM_DIR}/current/bin:${PATH}"
 ARG CODEX_VERSION=0.153.4
 RUN npm install -g "@openai/codex@${CODEX_VERSION}"
 
-# Install prime-agent. Not on the public npm registry: the vendor installer resolves a
-# pinned release and verifies it against a SHA256SUMS manifest. Bump the version by hand —
-# renovate has no datasource for this channel.
+# Install prime-agent (the Rust build). The release archive is checked against a checksum
+# pinned here, then installed by the installer bundled inside it (`--archive`). Never pipe the
+# live install.sh: that URL serves whatever installer is current, and when upstream swapped it
+# for the Rust one it could no longer install the version pinned here, which broke the build.
+# To bump, copy both checksums from the new release's SHA256SUMS (same URL as the archive,
+# with SHA256SUMS as the file name). renovate has no datasource for this channel. See
+# ~/repos/dotfiles/docs/decisions/2026-11-17-prime-agent-installs-from-a-pinned-archive.md
 #
 # ~/.prime is a per-container volume at runtime — only the config JSONs are bound from the
 # host, because prime's daemon, session and lease state cannot be shared between containers
-# without them claiming each other's sessions. That volume starts empty on every rebuild, so
-# prime-agent's components must not live under it: PRIME_AGENT_CODING_AGENT_DIR redirects the
-# build-time bootstrap and PRIME_AGENT_KERNEL_VENV pins the Python 3.11 IPython kernel venv
-# into /opt/prime, where one image-baked copy serves every container instead of each paying a
-# ~270MB uv bootstrap on first ipython use. fd/rg need no baking — the bootstrap finds the
-# apt copies and skips the download.
-ARG PRIME_AGENT_VERSION=0.7.2
+# without them claiming each other's sessions. The launcher (~/.local/bin) and payload
+# (~/.local/share/prime-agent) live in the image instead. PRIME_AGENT_CODING_AGENT_DIR keeps
+# the build-time bootstrap's writes out of ~/.prime (a fresh volume would copy them in), and
+# PRIME_AGENT_KERNEL_VENV pins the IPython kernel venv into /opt/prime, where one image-baked
+# copy serves every container instead of each paying a ~270MB uv bootstrap on first ipython
+# use. The installer's kernel pre-warm is best-effort, so the build checks the venv exists.
+ARG PRIME_AGENT_VERSION=0.10.3
 ENV PRIME_AGENT_KERNEL_VENV=/opt/prime/kernel-venv
-RUN mkdir -p /opt/prime/agent && \
-  . "$NVM_DIR/nvm.sh" && \
-  PRIME_AGENT_VERSION="${PRIME_AGENT_VERSION}" \
-  PRIME_AGENT_CODING_AGENT_DIR=/opt/prime/agent \
-  PRIME_AGENT_BOOTSTRAP_KERNEL_ON_INSTALL=1 \
-  PRIME_AGENT_INSTALLER_PLAIN=1 \
-  bash -c 'curl -fsSL https://app.primeintellect.ai/prime-agent/install.sh | sh'
+RUN case "${PRIME_AGENT_VERSION}-$(dpkg --print-architecture)" in \
+    0.10.3-amd64) PLATFORM=linux-x64 SHA256=811d9f0ec9dff007d5bda9c8435b0e7f46ef7041fa2fc103efc9edc295cb5528 ;; \
+    0.10.3-arm64) PLATFORM=linux-arm64 SHA256=a41da67f91897bc32a630fac65cc141bf83e1f2cb91ec133ef9194e2e8a99926 ;; \
+    *) echo "No pinned checksum for prime-agent ${PRIME_AGENT_VERSION} on $(dpkg --print-architecture); add it from that release's SHA256SUMS" && exit 1 ;; \
+  esac && \
+  ARCHIVE="prime-agent-${PRIME_AGENT_VERSION}-${PLATFORM}.tar.gz" && \
+  mkdir -p /opt/prime/agent /tmp/prime-agent && \
+  cd /tmp/prime-agent && \
+  curl -fsSLO "https://pub-728493de92a943e2a9b2d17b4719f318.r2.dev/releases/v${PRIME_AGENT_VERSION}/${ARCHIVE}" && \
+  echo "${SHA256}  ${ARCHIVE}" | sha256sum -c - && \
+  tar -xzf "${ARCHIVE}" install.sh && \
+  PRIME_AGENT_CODING_AGENT_DIR=/opt/prime/agent sh install.sh --archive "/tmp/prime-agent/${ARCHIVE}" && \
+  test -x "${PRIME_AGENT_KERNEL_VENV}/bin/python" && \
+  cd / && rm -rf /tmp/prime-agent
 
 # Install Fisher (fish plugin manager) and plugins
 RUN fish -c 'curl -sL https://raw.githubusercontent.com/jorgebucaran/fisher/main/functions/fisher.fish | source && fisher install jorgebucaran/fisher jorgebucaran/nvm.fish'

@@ -8,7 +8,7 @@
       "TZ": "${localEnv:TZ:UTC}",
       "GIT_DELTA_VERSION": "0.18.2",
       "ZSH_IN_DOCKER_VERSION": "1.2.1",
-      "PRIME_AGENT_VERSION": "0.7.2",
+      "PRIME_AGENT_VERSION": "0.10.3",
       "CODEX_VERSION": "0.153.4",
       "GREV_VERSION": "0.4.0"
     }
@@ -95,12 +95,12 @@
     "GH_TOKEN":"${localEnv:GH_TOKEN:}",
     "CONFIDENTIAL_API_KEY": "${localEnv:CONFIDENTIAL_API_KEY:}",
     "TYPESAFE_API_KEY": "${localEnv:TYPESAFE_API_KEY:}",
-    "PATH": "${containerEnv:PATH}:/home/vscode/.prime/bin:/home/vscode/.local/bin:/home/vscode/.local/share/prime-agent-node/current/bin"
+    "PATH": "${containerEnv:PATH}:/home/vscode/.local/bin"
   },
   "initializeCommand": "test -f \"$HOME/.gitconfig\" || touch \"$HOME/.gitconfig\"; test -f \"$HOME/.grevconfig\" || touch \"$HOME/.grevconfig\"; mkdir -p \"$HOME/.agents\"; mkdir -p \"$HOME/.prime/agent\"; P=\"$HOME/.prime/agent\"; test -f \"$P/auth.json\" || (umask 077; echo '{}' > \"$P/auth.json\"); test -f \"$P/models.json\" || echo '{\"providers\":{}}' > \"$P/models.json\"; test -f \"$P/settings.json\" || echo '{}' > \"$P/settings.json\"",
   "workspaceMount": "source=${localWorkspaceFolder},target=/workspace,type=bind,consistency=delegated",
   "workspaceFolder": "/workspace",
-  "postCreateCommand": "sudo chown -R vscode:vscode /home/vscode/.prime && curl -fsSL https://app.primeintellect.ai/prime-agent/install.sh | sh && sudo chsh -s /usr/bin/fish vscode",
+  "postCreateCommand": "sudo chown -R vscode:vscode /home/vscode/.prime && sudo chsh -s /usr/bin/fish vscode",
   "postStartCommand": {
     "link-agents": "link-agents",
     "sfx-relay": "nohup bash -c 'socat TCP-LISTEN:19876,fork,reuseaddr,bind=127.0.0.1 TCP:host.docker.internal:19876 </dev/null >/tmp/sfx-relay.log 2>&1 &'"
