@@ -152,6 +152,12 @@ ENV PATH="${NVM_DIR}/current/bin:${PATH}"
 ARG CODEX_VERSION=0.153.4
 RUN npm install -g "@openai/codex@${CODEX_VERSION}"
 
+# Codex's default reasoning effort. The host's codex/config.toml is never mounted (it is
+# macOS-only), so it lives in the system config layer instead. ~/.codex/config.toml in the
+# volume still overrides it, e.g. when /model saves a different effort.
+RUN sudo mkdir -p /etc/codex && \
+  printf 'model_reasoning_effort = "xhigh"\n' | sudo tee /etc/codex/config.toml >/dev/null
+
 # Install prime-agent (the Rust build). The release archive is checked against a checksum
 # pinned here, then installed by the installer bundled inside it (`--archive`). Never pipe the
 # live install.sh: that URL serves whatever installer is current, and when upstream swapped it
